@@ -4,74 +4,127 @@ import streamlit as st
 import json
 import platform
 
-# Muestra la versión de Python junto con detalles adicionales
-st.write("Versión de Python:", platform.python_version())
+# -----------------------------------------------------------
+# CONFIGURACIÓN DE LA APP
+# -----------------------------------------------------------
+st.set_page_config(page_title="Panel Futbolero IoT ⚽", layout="centered")
 
+st.markdown("""
+<style>
+body {
+    background: linear-gradient(180deg, #002B7A 0%, #0057D8 100%);
+    color: white;
+}
+h1, h2, h3, h4, h5 {
+    color: #FFD700 !important;
+    text-shadow: 2px 2px 4px #000000;
+}
+div.stButton>button {
+    background-color: #007BFF;
+    color: white;
+    border-radius: 15px;
+    border: none;
+    font-size: 18px;
+    padding: 10px 25px;
+    box-shadow: 0px 3px 8px rgba(0,0,0,0.3);
+}
+div.stButton>button:hover {
+    background-color: #FFD700;
+    color: black;
+    font-weight: bold;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# -----------------------------------------------------------
+# INFORMACIÓN GENERAL
+# -----------------------------------------------------------
+st.title("🏟️ Panel Futbolero IoT")
+st.markdown("""
+Bienvenido al **Centro de Comando del Club**.  
+Desde aquí podrás **activar jugadas**, **enviar señales** y **monitorear al equipo en tiempo real** 🧠⚡  
+---
+""")
+
+st.caption(f"Versión de Python en uso: `{platform.python_version()}`")
+
+# -----------------------------------------------------------
+# VARIABLES Y FUNCIONES MQTT
+# -----------------------------------------------------------
 values = 0.0
-act1="OFF"
+act1 = "OFF"
 
-def on_publish(client,userdata,result):             #create function for callback
-    print("el dato ha sido publicado \n")
-    pass
+def on_publish(client, userdata, result):
+    st.toast("✅ ¡La jugada fue enviada al campo!", icon="⚽")
 
 def on_message(client, userdata, message):
-    global message_received
-    time.sleep(2)
-    message_received=str(message.payload.decode("utf-8"))
-    st.write(message_received)
+    time.sleep(1)
+    msg = str(message.payload.decode("utf-8"))
+    st.info(f"📡 Mensaje recibido desde el campo: `{msg}`")
 
-        
+broker = "broker.mqttdashboard.com"
+port = 1883
 
+# -----------------------------------------------------------
+# INTERFAZ PRINCIPAL
+# -----------------------------------------------------------
 
-broker="broker.mqttdashboard.com"
-port=1883
-client1= paho.Client("GIT-HUB")
-client1.on_message = on_message
+st.subheader("🎮 Control del Partido")
 
+col1, col2 = st.columns(2)
 
+with col1:
+    if st.button("🟢 Iniciar Jugada (ON)"):
+        act1 = "ON"
+        client1 = paho.Client("GIT-HUB-DT")
+        client1.on_publish = on_publish
+        client1.connect(broker, port)
+        message = json.dumps({"Act1": act1})
+        ret = client1.publish("cmqtt_s", message)
+        st.success("🔥 ¡Jugada iniciada! El equipo está en movimiento.")
+    else:
+        st.write("")
 
-st.title("MQTT Control")
+with col2:
+    if st.button("🔴 Finalizar Jugada (OFF)"):
+        act1 = "OFF"
+        client1 = paho.Client("GIT-HUB-DT-OFF")
+        client1.on_publish = on_publish
+        client1.connect(broker, port)
+        message = json.dumps({"Act1": act1})
+        ret = client1.publish("cmqtt_sjero", message)
+        st.warning("🧤 Jugada detenida. El DT reagrupa al equipo.")
+    else:
+        st.write("")
 
-if st.button('ON'):
-    act1="ON"
-    client1= paho.Client("GIT-HUB")                           
-    client1.on_publish = on_publish                          
-    client1.connect(broker,port)  
-    message =json.dumps({"Act1":act1})
-    ret= client1.publish("cmqtt_s", message)
- 
-    #client1.subscribe("Sensores")
-    
-    
+# -----------------------------------------------------------
+# CONTROL ANALÓGICO
+# -----------------------------------------------------------
+st.markdown("---")
+st.subheader("⚙️ Potencia del Jugador")
+
+values = st.slider(
+    "Selecciona la **potencia de disparo o energía del jugador** 💪",
+    0.0, 100.0, 50.0
+)
+st.metric("Potencia actual", f"{values:.1f} %")
+
+if st.button("🚀 Enviar potencia al campo"):
+    client1 = paho.Client("GIT-HUB-FC")
+    client1.on_publish = on_publish
+    client1.connect(broker, port)
+    message = json.dumps({"Analog": float(values)})
+    ret = client1.publish("cmqtt_ajero", message)
+    st.balloons()
+    st.success("⚡ ¡Potencia enviada! El jugador está listo para patear al arco.")
 else:
-    st.write('')
+    st.write("")
 
-if st.button('OFF'):
-    act1="OFF"
-    client1= paho.Client("GIT-HUB_jero")                           
-    client1.on_publish = on_publish                          
-    client1.connect(broker,port)  
-    message =json.dumps({"Act1":act1})
-    ret= client1.publish("cmqtt_sjero", message)
-  
-    
-else:
-    st.write('')
-
-values = st.slider('Selecciona el rango de valores',0.0, 100.0)
-st.write('Values:', values)
-
-if st.button('Enviar valor analógico'):
-    client1= paho.Client("GIT-HUB_jero")                           
-    client1.on_publish = on_publish                          
-    client1.connect(broker,port)   
-    message =json.dumps({"Analog": float(values)})
-    ret= client1.publish("cmqtt_ajero", message)
-    
- 
-else:
-    st.write('')
-
-
-
-
+# -----------------------------------------------------------
+# PIE DE PÁGINA
+# -----------------------------------------------------------
+st.markdown("""
+---
+**Desarrollado por el Club de Datos ⚽🔬**  
+Conectando el fútbol y la tecnología para el futuro del juego.
+""")
